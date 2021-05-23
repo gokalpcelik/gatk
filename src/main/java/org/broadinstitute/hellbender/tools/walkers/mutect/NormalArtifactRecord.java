@@ -15,9 +15,9 @@ import java.util.List;
 
 public class NormalArtifactRecord {
     private int normalAltCount;
-    private int normalRefCount;
+    private int normalDepth;
     private int tumorAltCount;
-    private int tumorRefCount;
+    private int tumorDepth;
     private double downsampling;
     private String type;
 
@@ -25,16 +25,16 @@ public class NormalArtifactRecord {
         return normalAltCount;
     }
 
-    public int getNormalRefCount() {
-        return normalRefCount;
+    public int getNormalDepth() {
+        return normalDepth;
     }
 
     public int getTumorAltCount() {
         return tumorAltCount;
     }
 
-    public int getTumorRefCount() {
-        return tumorRefCount;
+    public int getTumorDepth() {
+        return tumorDepth;
     }
 
     public double getDownsampling() {
@@ -45,12 +45,12 @@ public class NormalArtifactRecord {
         return type;
     }
 
-    public NormalArtifactRecord(final int normalAltCount, final int normalRefCount, final int tumorAltCount,
-                                final int tumorRefCount, final double downsampling, final String type) {
+    public NormalArtifactRecord(final int normalAltCount, final int normalDepth, final int tumorAltCount,
+                                final int tumorDepth, final double downsampling, final String type) {
         this.normalAltCount = normalAltCount;
-        this.normalRefCount = normalRefCount;
+        this.normalDepth = normalDepth;
         this.tumorAltCount = tumorAltCount;
-        this.tumorRefCount = tumorRefCount;
+        this.tumorDepth = tumorDepth;
         this.downsampling = downsampling;
         this.type = type;
     }
@@ -82,9 +82,9 @@ public class NormalArtifactRecord {
         @Override
         protected void composeLine(final NormalArtifactRecord record, final DataLine dataLine) {
             dataLine.set(NormalArtifactColumn.NORMAL_ALT_COUNT.toString(), record.getNormalAltCount())
-                    .set(NormalArtifactColumn.NORMAL_REF_COUNT.toString(), record.getNormalRefCount())
+                    .set(NormalArtifactColumn.NORMAL_DEPTH.toString(), record.getNormalDepth())
                     .set(NormalArtifactColumn.TUMOR_ALT_COUNT.toString(), record.getTumorAltCount())
-                    .set(NormalArtifactColumn.TUMOR_REF_COUNT.toString(), record.getTumorRefCount())
+                    .set(NormalArtifactColumn.TUMOR_DEPTH.toString(), record.getTumorDepth())
                     .set(NormalArtifactColumn.DOWNSAMPLING.toString(), record.getDownsampling())
                     .set(NormalArtifactColumn.TYPE.toString(), record.getType());
         }
@@ -98,20 +98,20 @@ public class NormalArtifactRecord {
         @Override
         protected NormalArtifactRecord createRecord(final DataLine dataLine) {
             final int normalAltCount = dataLine.getInt(NormalArtifactColumn.NORMAL_ALT_COUNT);
-            final int normalRefCount = dataLine.getInt(NormalArtifactColumn.NORMAL_REF_COUNT);
+            final int normalDepth = dataLine.getInt(NormalArtifactColumn.NORMAL_DEPTH);
             final int tumorAltCount = dataLine.getInt(NormalArtifactColumn.TUMOR_ALT_COUNT);
-            final int tumorRefCount = dataLine.getInt(NormalArtifactColumn.TUMOR_REF_COUNT);
+            final int tumorDepth = dataLine.getInt(NormalArtifactColumn.TUMOR_DEPTH);
             final double downsampling = dataLine.getDouble(NormalArtifactColumn.DOWNSAMPLING);
             final String type = dataLine.get(NormalArtifactColumn.TYPE);
-            return new NormalArtifactRecord(normalAltCount, normalRefCount, tumorAltCount, tumorRefCount, downsampling, type);
+            return new NormalArtifactRecord(normalAltCount, normalDepth, tumorAltCount, tumorDepth, downsampling, type);
         }
     }
 
     private enum NormalArtifactColumn {
         NORMAL_ALT_COUNT("normal_alt"),
-        NORMAL_REF_COUNT("normal_ref"),
+        NORMAL_DEPTH("normal_dp"),
         TUMOR_ALT_COUNT("tumor_alt"),
-        TUMOR_REF_COUNT("tumor_ref"),
+        TUMOR_DEPTH("tumor_dp"),
         DOWNSAMPLING("downsampling"),
         TYPE("type");
 
@@ -126,7 +126,7 @@ public class NormalArtifactRecord {
             return columnName;
         }
 
-        public static final TableColumnCollection COLUMNS = new TableColumnCollection(NORMAL_ALT_COUNT, NORMAL_REF_COUNT,
-                TUMOR_ALT_COUNT, TUMOR_REF_COUNT, DOWNSAMPLING, TYPE);
+        public static final TableColumnCollection COLUMNS = new TableColumnCollection(NORMAL_ALT_COUNT, NORMAL_DEPTH,
+                TUMOR_ALT_COUNT, TUMOR_DEPTH, DOWNSAMPLING, TYPE);
     }
 }
