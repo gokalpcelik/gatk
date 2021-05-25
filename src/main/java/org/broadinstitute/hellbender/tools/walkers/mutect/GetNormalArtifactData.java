@@ -82,12 +82,12 @@ public class GetNormalArtifactData extends LocusWalker {
 
     @Override
     public boolean requiresReference() {
-        return false;
+        return true;
     }
 
     @Override
     public boolean requiresIntervals() {
-        return true;
+        return false;
     }
 
     @Override
@@ -135,7 +135,7 @@ public class GetNormalArtifactData extends LocusWalker {
         } else if (tumorAltCount > 0.5 * tumorPileup.size()) {
             return;
         }
-        
+
         final String type = bestNormalAllele < 4 ? "SNV" : "INDEL";
         data.add(new NormalArtifactRecord(normalAltCount, normalPileup.size(), tumorAltCount, tumorPileup.size(), downsampleProb, type));
 

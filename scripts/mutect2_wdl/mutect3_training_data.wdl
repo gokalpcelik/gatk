@@ -23,6 +23,7 @@ workflow Mutect3TrainingData {
         String? realignment_extra_args
         String? m2_extra_args
         String? m2_extra_filtering_args
+        String? normal_artifact_extra_args
         File? truth_vcf
         File? truth_vcf_idx
         Boolean? make_bamout
@@ -138,6 +139,23 @@ workflow Mutect3TrainingData {
                 gatk_docker = gatk_docker,
                 preemptible = preemptible
         }
+
+        call GetNormalArtifactData {
+            input:
+                ref_fasta = ref_fasta,
+                ref_fai = ref_fai,
+                ref_dict = ref_dict,
+                tumor_reads = select_first([normal_bam]),
+                tumor_reads_index = select_first([normal_bai]),
+                normal_reads = tumor_bam,
+                normal_reads_index = tumor_bai,
+                intervals = intervals,
+                preemptible = preemptible,
+                max_retries = max_retries,
+                extra_args = normal_artifact_extra_args,
+                gatk_override = gatk_override,
+                gatk_docker = gatk_docker
+        }
     }
 
 
@@ -146,6 +164,7 @@ workflow Mutect3TrainingData {
     output {
         File tumor_table = select_first([TumorConcordanceTable.table, TumorTable.table])
         File? normal_table = NormalTable.table
+        File? normal_artifact_table = GetNormalArtifactData.table
     }
 }
 
@@ -268,5 +287,81 @@ task MakeTableFromConcordance {
 
     output {
         File table = "output.table"
+    }
+}
+
+task GetNormalArtifactData {
+    input {
+        File? intervals
+        File ref_fasta
+        File ref_fai
+        File ref_dict
+        File tumor_reads
+        File tumor_reads_index
+        File? normal_reads
+        File? normal_reads_index
+        String? extra_args
+
+        File? gatk_override
+        String? gcs_project_for_requester_pays
+
+        # runtime
+        String gatk_docker
+        Int? mem
+        Int? preemptible
+        Int? max_retries
+        Int? disk_space
+        Int? cpu
+        Boolean use_ssd = false
+    }
+
+    # Mem is in units of GB but our command and memory runtime values are in MB
+    Int machine_mem = if defined(mem) then mem * 1000 else 3500
+    Int command_mem = machine_mem - 500
+
+    parameter_meta{
+        intervals: {localization_optional: true}
+        ref_fasta: {localization_optional: true}
+        ref_fai: {localization_optional: true}
+        ref_dict: {localization_optional: true}
+        tumor_reads: {localization_optional: true}
+        tumor_reads_index: {localization_optional: true}
+        normal_reads: {localization_optional: true}
+        normal_reads_index: {localization_optional: true}
+    }
+
+    command <<<
+        set -e
+
+        export GATK_LOCAL_JAR=~{default="/root/gatk.jar" gatk_override}
+
+        if [[ ! -z "~{normal_reads}" ]]; then
+            gatk --java-options "-Xmx~{command_mem}m" GetSampleName -R ~{ref_fasta} -I ~{normal_reads} -O normal_name.txt -encode \
+            ~{"--gcs-project-for-requester-pays " + gcs_project_for_requester_pays}
+            normal_sample="`cat normal_name.txt`"
+        fi
+
+
+
+        .add(M2ArgumentCollection.NORMAL_SAMPLE_LONG_NAME, normalSample);
+
+        gatk --java-options "-Xmx~{command_mem}m" GetNormalArtifactData \
+            -R ~{ref_fasta} ~{"-L " + intervals} -I ~{tumor_reads} -I ~{normal_reads} -O normal_artifact.table \
+            -normal $normal_sample \
+            ~{extra_args} ~{"--gcs-project-for-requester-pays " + gcs_project_for_requester_pays}
+    >>>
+
+    runtime {
+        docker: gatk_docker
+        bootDiskSizeGb: 12
+        memory: machine_mem + " MB"
+        disks: "local-disk " + select_first([disk_space, 100]) + if use_ssd then " SSD" else " HDD"
+        preemptible: select_first([preemptible, 10])
+        maxRetries: select_first([max_retries, 0])
+        cpu: select_first([cpu, 1])
+    }
+
+    output {
+        File table = "normal_artifact.table"
     }
 }
