@@ -45,6 +45,15 @@ public class GetNormalArtifactDataIntegrationTest extends CommandLineProgramTest
 
         final List<NormalArtifactRecord> records = NormalArtifactRecord.readFromFile(output);
 
+        final File gather = createTempFile("gather", ".table");
+        final ArgumentsBuilder args2 = new ArgumentsBuilder()
+                .addInput(output)
+                .addOutput(gather);
+
+        runCommandLine(args2, GatherNormalArtifactData.class.getSimpleName());
+
+        int g = 0;
+
 
 
 

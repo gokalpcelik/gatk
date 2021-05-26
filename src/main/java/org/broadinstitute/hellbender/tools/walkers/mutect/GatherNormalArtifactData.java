@@ -17,10 +17,12 @@ import java.util.stream.Collectors;
 )
 public class GatherNormalArtifactData extends CommandLineProgram {
 
-    @Argument(fullName = StandardArgumentDefinitions.INPUT_SHORT_NAME, doc = "an output of GetNormalArtifacatData")
+    @Argument(fullName = StandardArgumentDefinitions.INPUT_LONG_NAME, shortName = StandardArgumentDefinitions.INPUT_SHORT_NAME,
+            doc = "an output of GetNormalArtifacatData")
     final List<File> input = null;
 
-    @Argument(fullName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME, doc = "output")
+    @Argument(fullName = StandardArgumentDefinitions.OUTPUT_LONG_NAME, shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME,
+            doc = "output")
     final File output = null;
 
     @Override
