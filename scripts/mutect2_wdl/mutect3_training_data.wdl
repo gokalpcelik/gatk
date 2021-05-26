@@ -167,7 +167,7 @@ workflow Mutect3TrainingData {
                     tumor_reads_index = select_first([normal_bai]),
                     normal_reads = tumor_bam,
                     normal_reads_index = tumor_bai,
-                    intervals = intervals,
+                    intervals = subintervals,
                     preemptible = preemptible,
                     max_retries = max_retries,
                     extra_args = normal_artifact_extra_args,
