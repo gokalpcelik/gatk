@@ -161,16 +161,11 @@ public final class AggregatePairedEndAndSplitReadEvidence extends TwoPassVariant
 
     private Collection<VariantContext> outputBuffer;
 
-    private int numVariantsCompleted;
-    private int maxOutputBufferSize;
-
     private final int SPLIT_READ_QUERY_LOOKAHEAD = 0;
     private final int DISCORDANT_PAIR_QUERY_LOOKAHEAD = 0;
 
     @Override
     public void onTraversalStart() {
-        numVariantsCompleted = 0;
-        maxOutputBufferSize = 0;
         dictionary = getBestAvailableSequenceDictionary();
         if (dictionary == null) {
             throw new UserException("Reference sequence dictionary required");
@@ -265,8 +260,8 @@ public final class AggregatePairedEndAndSplitReadEvidence extends TwoPassVariant
 
     @Override
     public void afterFirstPass() {
-        discordantPairCollector.addRegionIntervals(discordantPairIntervals);
-        startSplitCollector.addRegionIntervals(splitReadIntervals);
+        discordantPairCollector.setCacheIntervals(discordantPairIntervals);
+        startSplitCollector.setCacheIntervals(splitReadIntervals);
     }
 
     @Override
@@ -287,15 +282,6 @@ public final class AggregatePairedEndAndSplitReadEvidence extends TwoPassVariant
             call = breakpointRefiner.refineCall(call, startSplitReadEvidence, endSplitReadEvidence);
         }
         outputBuffer.add(SVCallRecordUtils.getVariantBuilder(call).make());
-        maxOutputBufferSize = Math.max(maxOutputBufferSize, outputBuffer.size());
-
-        numVariantsCompleted++;
-        if (numVariantsCompleted % 5000 == 0) {
-            logger.debug(String.format("DiscordantPair cache hit rate: %.3f", discordantPairCollector.getAndResetCacheHitRate()));
-            logger.debug(String.format("StartSplitRead cache hit rate: %.3f", startSplitCollector.getAndResetCacheHitRate()));
-            logger.debug(String.format("Max output buffer size: %d", maxOutputBufferSize));
-            maxOutputBufferSize = 0;
-        }
     }
 
     @Override

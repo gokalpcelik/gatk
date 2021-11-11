@@ -99,7 +99,9 @@ public class EvidenceStatUtilsTest {
                 {2.0, 2},
                 {2.0, 3},
                 {2.0, 10},
-                {2.0, 100}
+                {2.0, 100},
+                {2.0, Integer.MAX_VALUE},
+                {2.0, -1}
         };
     }
 

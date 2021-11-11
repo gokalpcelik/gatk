@@ -14,7 +14,7 @@ public class DiscordantPairEvidenceAggregator extends SVEvidenceAggregator<Disco
                                             final SAMSequenceDictionary dictionary,
                                             final int innerWindow,
                                             final int outerWindow) {
-        super(source, dictionary, "DiscordantPairSites");
+        super(source, dictionary);
         this.innerWindow = innerWindow;
         this.outerWindow = outerWindow;
     }

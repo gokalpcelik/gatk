@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.tools.walkers.sv;
 
+import com.google.common.collect.ImmutableSet;
 import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.variant.variantcontext.Genotype;
@@ -178,7 +179,7 @@ import static org.broadinstitute.hellbender.tools.walkers.sv.JointGermlineCNVSeg
 )
 @BetaFeature
 @DocumentedFeature
-public final class SVCluster extends MultiVariantWalker {
+public final class SVCluster extends VariantWalker {
     public static final String PLOIDY_TABLE_LONG_NAME = "ploidy-table";
     public static final String VARIANT_PREFIX_LONG_NAME = "variant-prefix";
     public static final String ENABLE_CNV_LONG_NAME = "enable-cnv";
@@ -348,7 +349,7 @@ public final class SVCluster extends MultiVariantWalker {
         }
         ploidyTable = new PloidyTable(ploidyTablePath.toPath());
         recordComparator = SVCallRecordUtils.getCallComparator(dictionary);
-        samples = getSamplesForVariants();
+        samples = ImmutableSet.copyOf(getHeaderForVariants().getGenotypeSamples());
 
         if (algorithm == CLUSTER_ALGORITHM.DEFRAGMENT_CNV) {
             clusterEngine = SVClusterEngineFactory.createCNVDefragmenter(dictionary, altAlleleSummaryStrategy,

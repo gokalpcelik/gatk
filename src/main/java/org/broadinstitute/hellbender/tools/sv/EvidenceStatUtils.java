@@ -4,7 +4,6 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.math3.special.Gamma;
 import org.apache.commons.math3.stat.descriptive.rank.Median;
 import org.broadinstitute.hellbender.utils.QualityUtils;
-import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.Collection;
 import java.util.Map;
@@ -36,7 +35,7 @@ public class EvidenceStatUtils {
     protected static double getMedianNormalizedCount(final Collection<String> samples,
                                                      final Map<String, Integer> sampleCounts,
                                                      final Map<String, Double> sampleCoverageMap) {
-        if (samples.isEmpty()) {
+        if (samples.isEmpty() || sampleCounts.isEmpty()) {
             return 0;
         }
         final double[] normalizedCounts = new double[samples.size()];
@@ -74,7 +73,6 @@ public class EvidenceStatUtils {
                                                        final Map<String, Double> sampleCoverageMap,
                                                        final double meanCoverage,
                                                        final double expectedBackground) {
-        Utils.validateArg(!sampleCounts.isEmpty(), "Sample counts required");
         final double medianNormalizedCarrierCount = expectedBackground + EvidenceStatUtils.getMedianNormalizedCount(carrierSamples, sampleCounts, sampleCoverageMap);
         final double medianBackgroundRate = EvidenceStatUtils.getMedianNormalizedCount(backgroundSamples, sampleCounts, sampleCoverageMap);
         final int backgroundCount = (int) Math.round(medianBackgroundRate * meanCoverage);

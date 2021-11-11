@@ -13,7 +13,7 @@ public class SplitReadEvidenceAggregator extends SVEvidenceAggregator<SplitReadE
                                        final SAMSequenceDictionary dictionary,
                                        final int window,
                                        final boolean isStart) {
-        super(source, dictionary, isStart ? "StartSplitReadSites" : "EndSplitReadSites");
+        super(source, dictionary);
         this.window = window;
         this.isStart = isStart;
     }
