@@ -5,8 +5,11 @@ import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgram;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.CoverageAnalysisProgramGroup;
+import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.io.IOUtils;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,7 +21,7 @@ import java.util.stream.Collectors;
 public class GatherNormalArtifactData extends CommandLineProgram {
 
     @Argument(fullName = StandardArgumentDefinitions.INPUT_LONG_NAME, shortName = StandardArgumentDefinitions.INPUT_SHORT_NAME,
-            doc = "an output of GetNormalArtifacatData")
+            doc = "an output of GetNormalArtifactData")
     final List<File> input = null;
 
     @Argument(fullName = StandardArgumentDefinitions.OUTPUT_LONG_NAME, shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME,
@@ -27,9 +30,15 @@ public class GatherNormalArtifactData extends CommandLineProgram {
 
     @Override
     protected Object doWork() {
-        final List<NormalArtifactRecord> data = input.stream()
-                .flatMap(file -> NormalArtifactRecord.readFromFile(file).stream()).collect(Collectors.toList());
-        NormalArtifactRecord.writeToFile(data, output);
+
+        try ( NormalArtifactRecord.NormalArtifactWriter writer = new NormalArtifactRecord.NormalArtifactWriter(IOUtils.fileToPath(output)) ) {
+            for (final File inputFile : input) {
+                writer.writeAllRecords(NormalArtifactRecord.readFromFile(inputFile));
+            }
+        } catch (IOException e){
+            throw new UserException(String.format("Encountered an IO exception while writing to %s.", output));
+        }
+
         return "SUCCESS";
     }
 }

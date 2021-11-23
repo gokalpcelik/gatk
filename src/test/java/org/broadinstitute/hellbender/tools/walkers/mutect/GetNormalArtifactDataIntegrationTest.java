@@ -48,15 +48,10 @@ public class GetNormalArtifactDataIntegrationTest extends CommandLineProgramTest
         final File gather = createTempFile("gather", ".table");
         final ArgumentsBuilder args2 = new ArgumentsBuilder()
                 .addInput(output)
+                .addInput(output)
                 .addOutput(gather);
 
         runCommandLine(args2, GatherNormalArtifactData.class.getSimpleName());
-
-        int g = 0;
-
-
-
-
     }
 
     private String getSampleName(final File bam)  {
