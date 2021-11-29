@@ -6,10 +6,8 @@ import htsjdk.samtools.SAMSequenceRecord;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.util.Locatable;
 import org.broadinstitute.hellbender.exceptions.UserException;
-import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.AssemblyBasedCallerUtils;
 import org.broadinstitute.hellbender.tools.walkers.mutect.AlignmentData;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
-import org.broadinstitute.hellbender.utils.SequenceDictionaryUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.clipping.ReadClipper;
@@ -123,13 +121,23 @@ public final class AssemblyRegion implements Locatable {
         this(activeSpan, true, padding, header);
     }
 
+    /**
+     * Method for obtaining the alignment data which is attached to the assembly region.
+     *
+     * @return The list of AlignmentData objects associated with ActiveRegion.
+     */
     public List<AlignmentData> getAlignmentData() {
         return alignmentData;
     }
 
+    /**
+     * Method for adding alignment data to the collection of AlignmentData associated with
+     * the ActiveRegion.
+     */
     public void addAllAlignmentData(List<AlignmentData> alignmentData) {
         this.alignmentData.addAll(alignmentData);
     }
+
     @Override
     public String getContig() {
         return activeSpan.getContig();
@@ -278,10 +286,10 @@ public final class AssemblyRegion implements Locatable {
      * @param read a non-null GATKRead
      */
     public void add( final GATKRead read ) {
-        addToReadCollection(read, reads);
+        addToReadCollectionAndValidate(read, reads);
     }
 
-    private void addToReadCollection(final GATKRead read, final List<GATKRead> collection) {
+    private void addToReadCollectionAndValidate(final GATKRead read, final List<GATKRead> collection) {
         Utils.nonNull(read, "Read cannot be null");
         final SimpleInterval readLoc = new SimpleInterval( read );
         Utils.validateArg(paddedSpan.overlaps(read), () ->
@@ -330,7 +338,7 @@ public final class AssemblyRegion implements Locatable {
     }
 
     public void addHardClippedPileupReads(final Collection<GATKRead> readsToAdd) {
-        Utils.nonNull(readsToAdd).forEach(r -> addToReadCollection(r, hardClippedPileupReads));
+        Utils.nonNull(readsToAdd).forEach(r -> addToReadCollectionAndValidate(r, hardClippedPileupReads));
     }
 
     /**

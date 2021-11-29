@@ -107,7 +107,7 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
 
     @Override
     public AssemblyRegion next() {
-        if ( ! hasNext() ) {
+        if (!hasNext()) {
             throw new NoSuchElementException("next() called when there were no more elements");
         }
 
@@ -117,16 +117,8 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
         return toReturn;
     }
 
-//    private void addAlignmentData(AlignmentData alignmentData){
-//        int start = alignmentData.getAlignmentContext().getStart();
-//        if(!allAlignmentData.containsKey(start)){
-//
-//        }
-//    }
-
     private AssemblyRegion loadNextAssemblyRegion() {
         AssemblyRegion nextRegion = null;
-//        List<AlignmentData> alignmentData = new ArrayList<>();
 
         while ( locusIterator.hasNext() && nextRegion == null ) {
             final AlignmentContext pileup = locusIterator.next();
@@ -226,18 +218,30 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
     }
 
     private void fillNextAssemblyRegionWithPileupData(final AssemblyRegion region){
-        List<AlignmentData> overlappingAlignmentData = new ArrayList<>();
-        Queue<AlignmentData> previousAlignmentData = new ArrayDeque<>();
+        final List<AlignmentData> overlappingAlignmentData = new ArrayList<>();
+        final Queue<AlignmentData> previousAlignmentData = new ArrayDeque<>();
 
-        while (!pendingAlignmentData.isEmpty() && pendingAlignmentData.peek().getAlignmentContext().getStart() < region.getStart()){
-            pendingAlignmentData.poll();
+        while (!pendingAlignmentData.isEmpty()) {
+            final AlignmentContext pendingAlignmentContext = pendingAlignmentData.peek().getAlignmentContext();
+            if (!pendingAlignmentContext.contigsMatch(region) ||
+                pendingAlignmentContext.getStart() < region.getStart()) {
+                pendingAlignmentData.poll(); // pop this
+            } else {
+                break;
+            }
         }
-        while (!pendingAlignmentData.isEmpty() && pendingAlignmentData.peek().getAlignmentContext().getStart() <= region.getEnd()){
+        while (!pendingAlignmentData.isEmpty()) {
+            final AlignmentContext pendingAlignmentContext = pendingAlignmentData.peek().getAlignmentContext();
 
-            overlappingAlignmentData.add(pendingAlignmentData.poll());
+            if (!pendingAlignmentContext.contigsMatch(region) ||
+                    pendingAlignmentContext.getStart() <= region.getEnd()) {
+                overlappingAlignmentData.add(pendingAlignmentData.poll()); // pop into overlappingAlignmentData
+            } else {
+                break;
+            }
         }
 
-        // reconstructing queue to contain items that maybe in the next assembly region
+        // reconstructing queue to contain items that may be in the next assembly region
         previousAlignmentData.addAll(overlappingAlignmentData);
         previousAlignmentData.addAll(pendingAlignmentData);
         pendingAlignmentData = previousAlignmentData;
