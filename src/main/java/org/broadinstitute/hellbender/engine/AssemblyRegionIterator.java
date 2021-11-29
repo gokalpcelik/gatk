@@ -4,7 +4,6 @@ import htsjdk.samtools.SAMFileHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.engine.spark.AssemblyRegionArgumentCollection;
-import org.broadinstitute.hellbender.tools.walkers.mutect.AlignmentAndReferenceContext;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -51,7 +50,7 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
     private final Iterator<AlignmentContext> locusIterator;
     private final LocusIteratorByState libs;
     private final ActivityProfile activityProfile;
-    private Queue<AlignmentAndReferenceContext> pendingAlignmentData;
+    private Queue<AlignmentData> pendingAlignmentData;
 
     /**
      * Constructs an AssemblyRegionIterator over a provided read shard
@@ -137,7 +136,7 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
             final SimpleInterval pileupInterval = new SimpleInterval(pileup);
             final ReferenceContext pileupRefContext = new ReferenceContext(reference, pileupInterval);
             final FeatureContext pileupFeatureContext = new FeatureContext(features, pileupInterval);
-            pendingAlignmentData.add(new AlignmentAndReferenceContext(pileup, pileupRefContext));
+            pendingAlignmentData.add(new AlignmentData(pileup, pileupRefContext));
 
             final ActivityProfileState profile = evaluator.isActive(pileup, pileupRefContext, pileupFeatureContext);
             activityProfile.add(profile);
@@ -218,8 +217,8 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
     }
 
     private void fillNextAssemblyRegionWithPileupData(final AssemblyRegion region){
-        final List<AlignmentAndReferenceContext> overlappingAlignmentData = new ArrayList<>();
-        final Queue<AlignmentAndReferenceContext> previousAlignmentData = new ArrayDeque<>();
+        final List<AlignmentData> overlappingAlignmentData = new ArrayList<>();
+        final Queue<AlignmentData> previousAlignmentData = new ArrayDeque<>();
 
         while (!pendingAlignmentData.isEmpty()) {
             final AlignmentContext pendingAlignmentContext = pendingAlignmentData.peek().getAlignmentContext();
