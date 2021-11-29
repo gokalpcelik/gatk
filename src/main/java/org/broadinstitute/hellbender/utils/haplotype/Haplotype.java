@@ -150,14 +150,6 @@ public final class Haplotype extends Allele {
         this.eventMap = eventMap;
     }
 
-/*
-    public List<VariantContext> getVariantContextList() {return variantContextList;}
-
-    public void setVariantContextList(VariantContext variantContext) {
-        this.variantContextList.add(variantContext);
-    }
-*/
-
     @Override
     public String toString() {
         return getDisplayString();
