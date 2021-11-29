@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.tools.walkers.readorientation;
 
-import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.ArgumentCollection;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
@@ -15,7 +14,6 @@ import org.broadinstitute.hellbender.tools.walkers.mutect.Mutect2Engine;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -64,9 +62,8 @@ public class CollectF1R2Counts extends LocusWalker {
     }
 
     @Override
-    public ArrayList<VariantContext> apply(final AlignmentContext alignmentContext, final ReferenceContext referenceContext, final FeatureContext featureContext) {
+    public void apply(final AlignmentContext alignmentContext, final ReferenceContext referenceContext, final FeatureContext featureContext) {
         f1R2CountsCollector.process(alignmentContext.getBasePileup(), referenceContext);
-        return null;
     }
 
     @Override

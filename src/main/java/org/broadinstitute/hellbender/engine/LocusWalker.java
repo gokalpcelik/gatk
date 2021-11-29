@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.engine;
 
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMReadGroupRecord;
-import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.CommandLineException;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
@@ -197,15 +196,17 @@ public abstract class LocusWalker extends WalkerBase {
      * Process an individual AlignmentContext (with optional contextual information). Must be implemented by tool authors.
      * In general, tool authors should simply stream their output from apply(), and maintain as little internal state
      * as possible.
-     *  @param alignmentContext current alignment context
+     *
+     * @param alignmentContext current alignment context
      * @param referenceContext Reference bases spanning the current locus. Will be an empty, but non-null, context object
      *                         if there is no backing source of reference data (in which case all queries on it will return
      *                         an empty array/iterator). Can request extra bases of context around the current locus
      *                         by invoking {@link ReferenceContext#setWindow} on this object before calling {@link ReferenceContext#getBases}
      * @param featureContext Features spanning the current locus. Will be an empty, but non-null, context object
- *                       if there is no backing source of Feature data (in which case all queries on it will return an
+     *                       if there is no backing source of Feature data (in which case all queries on it will return an
+     *                       empty List).
      */
-    public abstract ArrayList<VariantContext> apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext);
+    public abstract void apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext);
 
     /**
      * Marked final so that tool authors don't override it. Tool authors should override onTraversalSuccess() instead.

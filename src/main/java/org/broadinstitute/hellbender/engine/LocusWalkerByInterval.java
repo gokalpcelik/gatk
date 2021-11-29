@@ -2,12 +2,14 @@ package org.broadinstitute.hellbender.engine;
 
 import htsjdk.samtools.util.Locatable;
 import htsjdk.samtools.util.OverlapDetector;
-import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.commons.collections4.SetUtils;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * An implementation of {@link LocusWalker} that supports arbitrary interval side inputs.
@@ -71,7 +73,7 @@ public abstract class LocusWalkerByInterval extends LocusWalker {
     public abstract List<Locatable> getIntervalObjectsToQueryOver();
 
     @Override
-    public final ArrayList<VariantContext> apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
+    public final void apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
         Set<Locatable> currentIntervals = intervalsToTrack.getOverlaps(alignmentContext);
         Set<Locatable> passedIntervals = SetUtils.difference(previousIntervals, currentIntervals);
         Set<Locatable> newIntervals = SetUtils.difference(currentIntervals, previousIntervals);
@@ -87,7 +89,6 @@ public abstract class LocusWalkerByInterval extends LocusWalker {
         }
 
         apply(alignmentContext, referenceContext, featureContext, currentIntervals);
-        return null;
     }
 
     /**

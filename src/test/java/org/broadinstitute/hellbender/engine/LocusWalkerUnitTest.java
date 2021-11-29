@@ -1,6 +1,5 @@
 package org.broadinstitute.hellbender.engine;
 
-import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
 import org.broadinstitute.hellbender.cmdline.TestProgramGroup;
@@ -12,7 +11,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 /**
  * @author Daniel Gomez-Sanchez (magicDGS)
@@ -81,10 +79,9 @@ public class LocusWalkerUnitTest extends CommandLineProgramTest {
             };
         }
 
-        public ArrayList<VariantContext> apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
+        public void apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
             alignmentContext.getBasePileup().getReads().forEach(read -> Assert.assertEquals(read.getAttributeAsString("tr"), "POST"));
             totalPileup++;
-            return null;
         }
     }
 
@@ -115,9 +112,8 @@ public class LocusWalkerUnitTest extends CommandLineProgramTest {
         }
 
         @Override
-        public ArrayList<VariantContext> apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
+        public void apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
             totalApplyCalls++;
-            return null;
         }
     }
 

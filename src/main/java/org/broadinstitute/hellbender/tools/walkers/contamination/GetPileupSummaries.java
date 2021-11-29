@@ -188,10 +188,10 @@ public class GetPileupSummaries extends LocusWalker {
     }
 
     @Override
-    public ArrayList<VariantContext> apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
+    public void apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
         final List<VariantContext> vcs = featureContext.getValues(variants);
         if (vcs.isEmpty()) {
-            return null;
+            return;
         }
         final VariantContext vc = vcs.get(0);
 
@@ -200,7 +200,6 @@ public class GetPileupSummaries extends LocusWalker {
                     .makeFilteredPileup(pe -> pe.getRead().getMappingQuality() >= minMappingQuality);
             pileupSummaries.add(new PileupSummary(vc, pileup));
         }
-        return null;
     }
 
     @Override

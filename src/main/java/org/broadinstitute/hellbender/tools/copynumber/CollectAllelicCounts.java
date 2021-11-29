@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.tools.copynumber;
 
 import com.google.common.collect.ImmutableList;
 import htsjdk.samtools.SAMSequenceDictionary;
-import htsjdk.variant.variantcontext.VariantContext;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
 import org.broadinstitute.barclay.help.DocumentedFeature;
@@ -159,9 +158,8 @@ public final class CollectAllelicCounts extends LocusWalker {
     }
 
     @Override
-    public ArrayList<VariantContext> apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
+    public void apply(AlignmentContext alignmentContext, ReferenceContext referenceContext, FeatureContext featureContext) {
         final byte refAsByte = referenceContext.getBase();
         allelicCountCollector.collectAtLocus(Nucleotide.decode(refAsByte), alignmentContext.getBasePileup(), alignmentContext.getLocation(), minimumBaseQuality);
-        return null;
     }
 }
