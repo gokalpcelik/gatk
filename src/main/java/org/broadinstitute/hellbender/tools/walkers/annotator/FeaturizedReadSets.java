@@ -88,25 +88,25 @@ public class FeaturizedReadSets implements JumboGenotypeAnnotation {
         haplotypeLikelihoods.bestAllelesBreakingTies(g.getSampleName()).stream().forEach(ba ->
             ba.evidence.getReads().forEach(read -> bestHaplotypes.put(read, ba.allele)));
 
-        final List<String> stringsInAlleleOrder = vc.getAlleles().stream()
-                .map(allele -> {
-                            final List<GATKRead> reads = readsByAllele.get(allele);
-                            final List<Integer> flattened = new ArrayList<>(reads.size() * FEATURES_PER_READ);
-                            reads.forEach(read -> flattened.addAll(featurize(read, vc, bestHaplotypes)));
-                            return StringUtils.join(flattened, ",");
-                        }).collect(Collectors.toList());
+        // flatten twice: over all reads supporting each allele and over all alleles
+        // we can partition by allele with the countsInAlleleOrder annotation
+        // and by read using the constant feature vector size
+        final int[] flattenedTensorInAlleleOrder = vc.getAlleles().stream()
+                .flatMap(allele -> readsByAllele.get(allele).stream().flatMap(read -> featurize(read, vc, bestHaplotypes).stream()))
+                .mapToInt(n->n).toArray();
 
+        final int[] countsInAlleleOrder = vc.getAlleles().stream()
+                .mapToInt(allele -> readsByAllele.get(allele).size()).toArray();
 
-        final String annotation = AnnotationUtils.encodeAnyASListWithRawDelim(stringsInAlleleOrder);
-
-        gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_KEY, annotation);
+        gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_KEY, flattenedTensorInAlleleOrder);
+        gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_COUNTS_KEY, countsInAlleleOrder);
     }
 
 
 
     @Override
     public List<String> getKeyNames() {
-        return Collections.singletonList(GATKVCFConstants.FEATURIZED_READ_SETS_KEY);
+        return Arrays.asList(GATKVCFConstants.FEATURIZED_READ_SETS_KEY, GATKVCFConstants.FEATURIZED_READ_SETS_COUNTS_KEY);
     }
 
     private List<Integer> featurize(final GATKRead read, final VariantContext vc, final Map<GATKRead, Haplotype> bestHaplotypes) {
