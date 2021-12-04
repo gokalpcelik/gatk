@@ -48,19 +48,22 @@ public abstract class SVEvidenceAggregator<T extends Feature> {
     public List<T> collectEvidence(final SVCallRecord call) {
         Utils.nonNull(call);
         final SimpleInterval callInterval = getEvidenceQueryInterval(call);
+        final Collection<T> rawEvidence;
         if (cacheIntervalTree == null) {
-            return source.queryAndPrefetch(callInterval);
-        }
-        final SimpleInterval regionInterval = getRegionInterval(callInterval);
-        if (!regionInterval.equals(cacheInterval)) {
-            cacheEvidence = new ArrayDeque<>(source.queryAndPrefetch(regionInterval));
-            cacheInterval = regionInterval;
-        }
-        while (!cacheEvidence.isEmpty() && callInterval.getStart() > cacheEvidence.peek().getStart()) {
-            cacheEvidence.pop();
+            rawEvidence = source.queryAndPrefetch(callInterval);
+        } else {
+            final SimpleInterval regionInterval = getRegionInterval(callInterval);
+            if (!regionInterval.equals(cacheInterval)) {
+                cacheEvidence = new ArrayDeque<>(source.queryAndPrefetch(regionInterval));
+                cacheInterval = regionInterval;
+            }
+            while (!cacheEvidence.isEmpty() && callInterval.getStart() > cacheEvidence.peek().getStart()) {
+                cacheEvidence.pop();
+            }
+            rawEvidence = cacheEvidence;
         }
         final List<T> callEvidence = new ArrayList<>();
-        for (final T evidence : cacheEvidence) {
+        for (final T evidence : rawEvidence) {
             if (callInterval.overlaps(evidence)) {
                 if (evidenceFilter(call, evidence)) {
                     callEvidence.add(evidence);
