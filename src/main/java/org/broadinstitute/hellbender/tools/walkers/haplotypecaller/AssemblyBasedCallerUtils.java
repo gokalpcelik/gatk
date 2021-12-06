@@ -389,7 +389,7 @@ public final class AssemblyBasedCallerUtils {
                             insertedHaplotype.setCigar(cigar);
                             insertedHaplotype.setGenomeLocation(refHaplotype.getGenomeLocation());
                             insertedHaplotype.setAlignmentStartHapwrtRef(activeRegionStart);
-                            insertedHaplotype.addVariantContext(givenVC);
+//                            insertedHaplotype.addVariantContext(givenVC);
 
                             // and add to our internal list so we get haplotypes that contain all given alleles
                             // do we want a flag to control this behavior
@@ -523,15 +523,27 @@ public final class AssemblyBasedCallerUtils {
         return sortedHaplotypeScores.keySet();
     }
 
+    /** A utility method that increments a counter-map
+     * or sets the counter to 1 if the key is missing.
+     *
+     * @param map a Map<Type,Integer>
+     * @param key The Key to increment
+     * @param <Type> the type that Maps to an Integer
+     *
+     */
+    synchronized private static <Type> void increment(Map<Type,Integer> map, Type key){
+        if (!map.containsKey(key)) {
+            map.put(key, 1);
+        } else {
+            map.put(key, map.get(key) + 1);
+        }
+    }
+
     static void kmerizeAndCountOccurences(byte[] sequence, int kmerSize, Map<Kmer, Integer> results){
         final int stopPosition = sequence.length - kmerSize;
         for (int i = 0; i <= stopPosition; i++) {
             final Kmer kmer = new Kmer(sequence, i, kmerSize);
-            if (!results.containsKey(kmer)) {
-                results.put(kmer, 1);
-            } else {
-                results.put(kmer, results.get(kmer)+1);
-            }
+            increment(results, kmer);
         }
     }
 

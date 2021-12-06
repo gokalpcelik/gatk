@@ -50,7 +50,7 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
     private final Iterator<AlignmentContext> locusIterator;
     private final LocusIteratorByState libs;
     private final ActivityProfile activityProfile;
-    private Queue<AlignmentData> pendingAlignmentData;
+    private Queue<AlignmentAndReferenceContext> pendingAlignmentData;
 
     /**
      * Constructs an AssemblyRegionIterator over a provided read shard
@@ -136,7 +136,7 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
             final SimpleInterval pileupInterval = new SimpleInterval(pileup);
             final ReferenceContext pileupRefContext = new ReferenceContext(reference, pileupInterval);
             final FeatureContext pileupFeatureContext = new FeatureContext(features, pileupInterval);
-            pendingAlignmentData.add(new AlignmentData(pileup, pileupRefContext));
+            pendingAlignmentData.add(new AlignmentAndReferenceContext(pileup, pileupRefContext));
 
             final ActivityProfileState profile = evaluator.isActive(pileup, pileupRefContext, pileupFeatureContext);
             activityProfile.add(profile);
@@ -217,8 +217,8 @@ public class AssemblyRegionIterator implements Iterator<AssemblyRegion> {
     }
 
     private void fillNextAssemblyRegionWithPileupData(final AssemblyRegion region){
-        final List<AlignmentData> overlappingAlignmentData = new ArrayList<>();
-        final Queue<AlignmentData> previousAlignmentData = new ArrayDeque<>();
+        final List<AlignmentAndReferenceContext> overlappingAlignmentData = new ArrayList<>();
+        final Queue<AlignmentAndReferenceContext> previousAlignmentData = new ArrayDeque<>();
 
         while (!pendingAlignmentData.isEmpty()) {
             final AlignmentContext pendingAlignmentContext = pendingAlignmentData.peek().getAlignmentContext();

@@ -13,7 +13,7 @@ import java.util.*;
 public final class PileupBasedAlleles {
 
 
-    ArrayList<VariantContext> forcedPileupAlleles;
+//    ArrayList<VariantContext> forcedPileupAlleles;
 
 
     public static ArrayList<VariantContext> getPileupVariantContexts(List<AlignmentAndReferenceContext> alignmentAndReferenceContextList) {
