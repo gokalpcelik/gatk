@@ -285,12 +285,6 @@ public final class Mutect2 extends AssemblyRegionWalker {
             annotations.add(new OriginalAlignment());
         }
 
-        if (MTAC.trainingDataMode) {
-            annotations.add(new FeaturizedReadSets(MTAC.maxRefCountInTrainingData));
-            annotations.add(new AssemblyComplexity());
-            annotations.add(new ReferenceBases());
-        }
-
         return annotations;
     }
 

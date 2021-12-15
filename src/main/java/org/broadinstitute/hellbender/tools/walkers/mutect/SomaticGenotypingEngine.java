@@ -8,12 +8,16 @@ import htsjdk.samtools.util.Locatable;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.vcf.VCFConstants;
 import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.DefaultRealMatrixChangingVisitor;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
+import org.broadinstitute.hellbender.tools.walkers.annotator.AssemblyComplexity;
+import org.broadinstitute.hellbender.tools.walkers.annotator.FeaturizedReadSets;
+import org.broadinstitute.hellbender.tools.walkers.annotator.ReferenceBases;
 import org.broadinstitute.hellbender.tools.walkers.annotator.VariantAnnotatorEngine;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.*;
 import org.broadinstitute.hellbender.utils.*;
@@ -194,6 +198,14 @@ public class SomaticGenotypingEngine {
                     trimmedLikelihoodsForAnnotation, Optional.of(trimmedLikelihoods), Optional.of(logFragmentLikelihoods), a -> true);
             if(withBamOut) {
                 AssemblyBasedCallerUtils.annotateReadLikelihoodsWithSupportedAlleles(trimmedCall, trimmedLikelihoods, Fragment::getReads);
+            }
+
+            if (MTAC.trainingDataMode) {
+                // haplotype equivalence counts, haplotype complexity, haplotype dominance
+                final Triple<int[], int[], double[]> assemblyComplexity = AssemblyComplexity.annotate(trimmedCall, logFragmentLikelihoods);
+                final String refBases = ReferenceBases.annotate(referenceContext, trimmedCall);
+
+                new FeaturizedReadSets(MTAC.maxRefCountInTrainingData)
             }
 
             call.getAlleles().stream().map(alleleMapper::get).filter(Objects::nonNull).forEach(calledHaplotypes::addAll);
