@@ -200,12 +200,16 @@ public class SomaticGenotypingEngine {
                 AssemblyBasedCallerUtils.annotateReadLikelihoodsWithSupportedAlleles(trimmedCall, trimmedLikelihoods, Fragment::getReads);
             }
 
+            // TODO: this should own an M3DatasetEngine
             if (MTAC.trainingDataMode) {
-                // haplotype equivalence counts, haplotype complexity, haplotype dominance
-                final Triple<int[], int[], double[]> assemblyComplexity = AssemblyComplexity.annotate(trimmedCall, logFragmentLikelihoods);
-                final String refBases = ReferenceBases.annotate(referenceContext, trimmedCall);
 
-                new FeaturizedReadSets(MTAC.maxRefCountInTrainingData)
+                // CONTIG POSITION REF ALT
+                // HAPLOTYPE EQUIVALENCE
+                // HAPLOTYPE COMPLEXITY
+                // HAPLOTYPE DOMINANCE
+                // FRS COUNTS
+                // one read per line
+                // . . .
             }
 
             call.getAlleles().stream().map(alleleMapper::get).filter(Objects::nonNull).forEach(calledHaplotypes::addAll);

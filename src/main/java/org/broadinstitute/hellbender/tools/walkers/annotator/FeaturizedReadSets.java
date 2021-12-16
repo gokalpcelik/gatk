@@ -38,7 +38,7 @@ public class FeaturizedReadSets implements JumboGenotypeAnnotation {
 
     private static final int DEFAULT_MAX_REF_COUNT = Integer.MAX_VALUE;
 
-    private static final int FEATURES_PER_READ = 11;
+    public static final int FEATURES_PER_READ = 11;
 
     private final SmithWatermanAligner aligner = SmithWatermanAligner.getAligner(SmithWatermanAligner.Implementation.JAVA);
 
@@ -70,10 +70,31 @@ public class FeaturizedReadSets implements JumboGenotypeAnnotation {
             return;
         }
 
+        final List<List<List<Integer>>> readVectorsByAllele = getReadVectors(vc, g.getSampleName(), likelihoods, haplotypeLikelihoods);
+
+        // flatten twice: over all reads supporting each allele and over all alleles
+        // we can partition by allele with the countsInAlleleOrder annotation
+        // and by read using the constant feature vector size
+        final int[] flattenedTensorInAlleleOrder = readVectorsByAllele.stream()
+                .flatMap(listOfLists -> listOfLists.stream().flatMap(List::stream))
+                .mapToInt(n -> n)
+                .toArray();
+
+        final int[] countsInAlleleOrder = readVectorsByAllele.stream().mapToInt(List::size).toArray();
+
+        gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_KEY, flattenedTensorInAlleleOrder);
+        gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_COUNTS_KEY, countsInAlleleOrder);
+    }
+
+    // returns Lists (in allele order) of lists of read vectors supporting each allele
+    public List<List<List<Integer>>> getReadVectors(final VariantContext vc,
+                         final String sample,
+                         final AlleleLikelihoods<GATKRead, Allele> likelihoods,
+                         final AlleleLikelihoods<Fragment, Haplotype> haplotypeLikelihoods) {
         final Map<Allele, List<GATKRead>> readsByAllele = likelihoods.alleles().stream()
                 .collect(Collectors.toMap(a -> a, a -> new ArrayList<>()));
 
-        Utils.stream(likelihoods.bestAllelesBreakingTies(g.getSampleName()))
+        Utils.stream(likelihoods.bestAllelesBreakingTies(sample))
                 .filter(ba -> ba.isInformative())
                 .forEach(ba -> readsByAllele.get(ba.allele).add(ba.evidence));
 
@@ -85,23 +106,13 @@ public class FeaturizedReadSets implements JumboGenotypeAnnotation {
         }
 
         final Map<GATKRead, Haplotype> bestHaplotypes = new HashMap<>();
-        haplotypeLikelihoods.bestAllelesBreakingTies(g.getSampleName()).stream().forEach(ba ->
-            ba.evidence.getReads().forEach(read -> bestHaplotypes.put(read, ba.allele)));
+        haplotypeLikelihoods.bestAllelesBreakingTies(sample).stream().forEach(ba ->
+                ba.evidence.getReads().forEach(read -> bestHaplotypes.put(read, ba.allele)));
 
-        // flatten twice: over all reads supporting each allele and over all alleles
-        // we can partition by allele with the countsInAlleleOrder annotation
-        // and by read using the constant feature vector size
-        final int[] flattenedTensorInAlleleOrder = vc.getAlleles().stream()
-                .flatMap(allele -> readsByAllele.get(allele).stream().flatMap(read -> featurize(read, vc, bestHaplotypes).stream()))
-                .mapToInt(n->n).toArray();
-
-        final int[] countsInAlleleOrder = vc.getAlleles().stream()
-                .mapToInt(allele -> readsByAllele.get(allele).size()).toArray();
-
-        gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_KEY, flattenedTensorInAlleleOrder);
-        gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_COUNTS_KEY, countsInAlleleOrder);
+        return vc.getAlleles().stream()
+                .map(allele -> readsByAllele.get(allele).stream().map(read -> featurize(read, vc, bestHaplotypes)).collect(Collectors.toList()))
+                .collect(Collectors.toList());
     }
-
 
 
     @Override
