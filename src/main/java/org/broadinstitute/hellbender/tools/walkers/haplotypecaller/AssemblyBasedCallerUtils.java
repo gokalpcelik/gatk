@@ -16,6 +16,7 @@ import org.broadinstitute.hellbender.engine.AlignmentContext;
 import org.broadinstitute.hellbender.engine.AssemblyRegion;
 import org.broadinstitute.hellbender.tools.walkers.ReferenceConfidenceVariantContextMerger;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.readthreading.ReadThreadingAssembler;
+import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.QualityUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -317,7 +318,7 @@ public final class AssemblyBasedCallerUtils {
             }
 
             if (!forcedPileupAlleles.isEmpty()) {
-                processPileupAlleles(region, forcedPileupAlleles, argumentCollection.maxMnpDistance, aligner, refHaplotype, assemblyResultSet);
+                processPileupAlleles(region, forcedPileupAlleles, argumentCollection.pileupDetectionArgs.snpAdajacentToAssemblyIndel, argumentCollection.maxMnpDistance, aligner, refHaplotype, assemblyResultSet);
             }
 
 
@@ -337,12 +338,26 @@ public final class AssemblyBasedCallerUtils {
         }
     }
 
+    /**
+     * Handle pileup detected alternate alleles.
+     * @param region
+     * @param givenAlleles
+     * @param maxMnpDistance
+     * @param snpAdjacentToIndelLimit
+     * @param aligner
+     * @param refHaplotype
+     * @param assemblyResultSet
+     */
     @VisibleForTesting
-    static void processPileupAlleles(AssemblyRegion region, List<VariantContext> givenAlleles, int maxMnpDistance, SmithWatermanAligner aligner, Haplotype refHaplotype, AssemblyResultSet assemblyResultSet) {
+    static void processPileupAlleles(final AssemblyRegion region, final List<VariantContext> givenAlleles, final int maxMnpDistance,
+                                     final int snpAdjacentToIndelLimit, final SmithWatermanAligner aligner, final Haplotype refHaplotype,
+                                     final AssemblyResultSet assemblyResultSet) {
         final int assemblyRegionStart = region.getPaddedSpan().getStart();
         final int activeRegionStart = refHaplotype.getAlignmentStartHapwrtRef();
         final Map<Integer, VariantContext> assembledVariants = assemblyResultSet.getVariationEvents(maxMnpDistance).stream()
                 .collect(Collectors.groupingBy(VariantContext::getStart, Collectors.collectingAndThen(Collectors.toList(), AssemblyBasedCallerUtils::makeMergedVariantContext)));
+        final Collection<VariantContext> assembledIndels = assemblyResultSet.getVariationEvents(maxMnpDistance).stream().filter(VariantContext::isIndel)
+                .collect(Collectors.groupingBy(VariantContext::getStart, Collectors.collectingAndThen(Collectors.toList(), AssemblyBasedCallerUtils::makeMergedVariantContext))).values();
 
         Set<Haplotype> baseHaplotypes = new TreeSet<>();
         //BG Testing assembledAndNewHaplotypes.addAll(assemblyResultSet.getHaplotypeList());
@@ -353,9 +368,11 @@ public final class AssemblyBasedCallerUtils {
                 .collect(Collectors.toList()));
 
         Map<Kmer, Integer> kmerReadCounts = getKmerReadCounts(region.getHardClippedPileupReads(), 10);
-        //TODO BG & AH filter out low base and/or mapping quality alleles
 
-        for (final VariantContext givenVC : givenAlleles) {
+        // Remove SNPs that are too close to assembled indels.
+        final List<VariantContext> givenAllelesFiltered = givenAlleles.stream().filter(vc -> vc.isIndel() || assembledIndels.stream().noneMatch(indel -> vc.withinDistanceOf(indel, snpAdjacentToIndelLimit))).collect(Collectors.toList());
+
+        for (final VariantContext givenVC : givenAllelesFiltered) {
             //TODO BG Question - What does the assembledVC do?
             final VariantContext assembledVC = assembledVariants.get(givenVC.getStart());
             final int givenVCRefLength = givenVC.getReference().length();
@@ -408,6 +425,7 @@ public final class AssemblyBasedCallerUtils {
         assemblyResultSet.regenerateVariationEvents(maxMnpDistance);
     }
 
+    @VisibleForTesting
     static void addGivenAlleles(final int assemblyRegionStart, final List<VariantContext> givenAlleles, final int maxMnpDistance,
                                 final SmithWatermanAligner aligner, final Haplotype refHaplotype, final AssemblyResultSet assemblyResultSet) {
         final int activeRegionStart = refHaplotype.getAlignmentStartHapwrtRef();
@@ -473,7 +491,7 @@ public final class AssemblyBasedCallerUtils {
 
     @VisibleForTesting
     static Set<Haplotype> filterPileupHaplotypes(final List<Haplotype> onlyNewHaplotypes,
-                                                  final Map<Kmer, Integer> kmerReadCounts,
+                                                 final Map<Kmer, Integer> kmerReadCounts,
                                                  final int numPileupHaplotypes) {
         // TODO AH & BG add the following code to check for quality of the SNPs
 //        // make sure we're supposed to look for high entropy
