@@ -8,16 +8,12 @@ import htsjdk.samtools.util.Locatable;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.vcf.VCFConstants;
 import org.apache.commons.collections4.ListUtils;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.DefaultRealMatrixChangingVisitor;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
-import org.broadinstitute.hellbender.tools.walkers.annotator.AssemblyComplexity;
-import org.broadinstitute.hellbender.tools.walkers.annotator.FeaturizedReadSets;
-import org.broadinstitute.hellbender.tools.walkers.annotator.ReferenceBases;
 import org.broadinstitute.hellbender.tools.walkers.annotator.VariantAnnotatorEngine;
 import org.broadinstitute.hellbender.tools.walkers.haplotypecaller.*;
 import org.broadinstitute.hellbender.utils.*;
@@ -43,6 +39,7 @@ public class SomaticGenotypingEngine {
     private final Set<String> normalSamples;
     final boolean hasNormal;
     protected VariantAnnotatorEngine annotationEngine;
+    private final Optional<Mutect3DatasetEngine> mutect3DatasetEngine;
 
     // If MTAC.minAF is non-zero we softly cut off allele fractions below minAF with a Beta prior of the form Beta(1+epsilon, 1); that is
     // the prior on allele fraction f is proportional to f^epsilon.  If epsilon is small this prior vanishes as f -> 0
@@ -57,6 +54,10 @@ public class SomaticGenotypingEngine {
         this.normalSamples = normalSamples;
         hasNormal = !normalSamples.isEmpty();
         this.annotationEngine = annotationEngine;
+
+        mutect3DatasetEngine = MTAC.mutect3Dataset == null ? Optional.empty() :
+                Optional.of(new Mutect3DatasetEngine(MTAC.mutect3Dataset, MTAC.maxRefCountForMutect3, MTAC.mutect3NonArtifactRatio, normalSamples));
+        Utils.validateArg(!(MTAC.mutect3Dataset == null && MTAC.mutect3TrainingDataMode), "No dataset file specified for Mutect3 training data mode.");
     }
 
     /**
@@ -200,17 +201,7 @@ public class SomaticGenotypingEngine {
                 AssemblyBasedCallerUtils.annotateReadLikelihoodsWithSupportedAlleles(trimmedCall, trimmedLikelihoods, Fragment::getReads);
             }
 
-            // TODO: this should own an M3DatasetEngine
-            if (MTAC.trainingDataMode) {
-
-                // CONTIG POSITION REF ALT
-                // HAPLOTYPE EQUIVALENCE
-                // HAPLOTYPE COMPLEXITY
-                // HAPLOTYPE DOMINANCE
-                // FRS COUNTS
-                // one read per line
-                // . . .
-            }
+            mutect3DatasetEngine.ifPresent(engine -> engine.addData(referenceContext, annotatedCall, trimmedLikelihoodsForAnnotation, logFragmentLikelihoods));
 
             call.getAlleles().stream().map(alleleMapper::get).filter(Objects::nonNull).forEach(calledHaplotypes::addAll);
             returnCalls.add( annotatedCall );

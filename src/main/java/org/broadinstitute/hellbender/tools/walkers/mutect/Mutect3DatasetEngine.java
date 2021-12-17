@@ -5,6 +5,7 @@ import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.math3.util.FastMath;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
+import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.AssemblyComplexity;
 import org.broadinstitute.hellbender.tools.walkers.annotator.FeaturizedReadSets;
 import org.broadinstitute.hellbender.tools.walkers.annotator.ReferenceBases;
@@ -17,10 +18,11 @@ import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.eclipse.jetty.util.ArrayQueue;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Queue;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Mutect3DatasetEngine {
@@ -44,35 +46,33 @@ public class Mutect3DatasetEngine {
     // There are so many germline variants we can be wasteful!
     private static final double COMMON_POPAF_THRESHOLD = 1;
 
+    private final int maxRefCount;
+
     // TODO: is this necessary?
     private static final int MIN_REF = 5;
 
-    private final File datasetFile;
-
-    private final int maxRefCount;
+    private final PrintWriter printWriter;
 
     // number of nonartifact data to keep for each artifact datum
     private final int nonArtifactPerArtifact;
 
-    private final FeaturizedReadSets readFeaturizer;
+    private final Set<String> normalSamples;
 
     // simple method to balance data: for each k-alt-read artifact there are
     // nonArtifactPerArtifact (downsampled) k-alt-read non-artifacts.
     private final EnumMap<VariantType, ArrayQueue<Integer>> unmatchedCounts;
 
 
+    public Mutect3DatasetEngine(final File datasetFile, final int maxRefCount, final int nonArtifactPerArtifact, final Set<String> normalSamples) {
+        try {
+            printWriter = new PrintWriter(new FileWriter(Utils.nonNull(datasetFile)));
+        } catch (IOException ex) {
+            throw new UserException.BadInput("Could not create dataset file writer");
+        }
 
-
-
-
-
-
-
-    public Mutect3DatasetEngine(final File datasetFile, final int maxRefCount, final int nonArtifactPerArtifact) {
-        this.datasetFile = datasetFile;
-        this.maxRefCount = maxRefCount;
+        this.normalSamples = Utils.nonNull(normalSamples);
         this.nonArtifactPerArtifact = nonArtifactPerArtifact;
-        readFeaturizer = new FeaturizedReadSets(maxRefCount);
+        this.maxRefCount = maxRefCount;
 
         unmatchedCounts = new EnumMap<VariantType, ArrayQueue<Integer>>(VariantType.class);
         for (final VariantType type : VariantType.values()) {
@@ -91,38 +91,52 @@ public class Mutect3DatasetEngine {
         // haplotype equivalence counts, haplotype complexity, haplotype dominance
         final Triple<int[], int[], double[]> assemblyComplexity = AssemblyComplexity.annotate(vc, logFragmentLikelihoods);
 
-        //TODO: need this for tumor and normal sample
-        final List<List<List<Integer>>> readVectorsByAllele =  readFeaturizer.getReadVectors(vc, sample, likelihoods, logFragmentLikelihoods);
+        final List<String> tumorSamples = likelihoods.samples().stream().filter(sample -> !normalSamples.contains(sample)).collect(Collectors.toList());
+        final List<List<List<Integer>>> normalReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, normalSamples, likelihoods, logFragmentLikelihoods, maxRefCount);
+        final List<List<List<Integer>>> tumorReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, tumorSamples, likelihoods, logFragmentLikelihoods, maxRefCount);
 
-
+        // ref reads have already been downsampled by the read featurizer
+        final List<List<Integer>> tumorRefReads = tumorReadVectorsByAllele.get(0);
+        final List<List<Integer>> normalRefReads = normalReadVectorsByAllele.get(0);
 
         for (int n = 0; n < vc.getNAlleles() - 1; n++) {
-
-
-            final Allele altAllele = vc.getAlternateAllele(n);
-            final String altBases = altAllele.getBaseString();
+            final String altAllele = vc.getAlternateAllele(n).getBaseString();
             final int diff = altAllele.length() - refAllele.length();
             final VariantType type = diff == 0 ? VariantType.SNV : ( diff > 0 ? VariantType.INSERTION : VariantType.DELETION);
 
 
+            // format is (all vectors are one vector per line, single-spaced)
+            // CONTIG:POSITION,REF->ALT
+            // REFERENCE CONTEXT BASES
+            // variant feature vector
+            // tumor_ref_count tumor_alt_count normal_ref_count normal_alt_count
+            // tumor ref reads, one per line
+            // tumor alt reads
+            // normal ref reads
+            // normal alt reads
+            printWriter.printf("%s:%d,%s->%s", contig, position, refAllele, altAllele);
+            printWriter.print(refBases);
 
-            // TODO: write contig position ref alt
-            // TODO: write ref bases
-
+            // print variant feature vector with 3 decimal places, single-spaced
             final List<Double> variantFeatureVector = variantFeatures(n, assemblyComplexity, refBases);
-            // TODO: write variant vector
+            printWriter.print(numberString(variantFeatureVector, "%.3f", " "));
 
-            final List<List<Integer>> refReadVectors = readVectorsByAllele.get(0);
-            final List<List<Integer>> altReadVectors = readVectorsByAllele.get(n + 1);
-            // TODO: write read vectors
-
-
-
-
+            final List<List<Integer>> tumorAltReads = tumorReadVectorsByAllele.get(n+1);
+            final List<List<Integer>> normalAltReads = normalReadVectorsByAllele.get(n+1);
+            printWriter.printf("%d %d %d %d", tumorRefReads.size(), tumorAltReads.size(), normalRefReads.size(), normalAltReads.size());
+            tumorRefReads.forEach(r -> printWriter.print(numberString(r)));
+            tumorAltReads.forEach(r -> printWriter.print(numberString(r)));
+            normalRefReads.forEach(r -> printWriter.print(numberString(r)));
+            normalAltReads.forEach(r -> printWriter.print(numberString(r)));
             }
+    }
 
-        
+    private String numberString(final List<? extends Number> numbers) {
+        return numberString(numbers, "%.3f", " ");
+    }
 
+    private String numberString(final List<? extends Number> numbers, final String formatString, final String separator) {
+        return numbers.stream().map(x -> String.format(formatString, x)).collect(Collectors.joining(separator));
     }
 
     private List<Double> variantFeatures(final int altAlleleIndex, Triple<int[], int[], double[]> assemblyComplexity, final String refBases) {
@@ -180,8 +194,6 @@ public class Mutect3DatasetEngine {
 
         return FastMath.max(forwardRepeats, backwardRepeats);
     }
-
-
 
     public void shutdown() {
         // close the writer

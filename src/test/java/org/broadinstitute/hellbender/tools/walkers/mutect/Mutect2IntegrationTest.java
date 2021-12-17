@@ -312,7 +312,7 @@ public class Mutect2IntegrationTest extends CommandLineProgramTest {
         //runMutect2(tumor, unfilteredVcf, "20:10000000-10010000", b37Reference, Optional.of(GNOMAD));
         runMutect2(tumor, unfilteredVcf, "20:10000000-10010000", b37Reference, Optional.of(GNOMAD),
                    args -> args.addFlag(ReadThreadingAssemblerArgumentCollection.LINKED_DE_BRUIJN_GRAPH_LONG_NAME),
-                   args -> args.addFlag(M2ArgumentCollection.TRAINING_DATA_MODE_LONG_NAME));
+                   args -> args.addFlag(M2ArgumentCollection.MUTECT3_TRAINING_MODE_LONG_NAME));
         
         VariantContextTestUtils.streamVcf(unfilteredVcf).forEach(vc -> {
             Assert.assertTrue(vc.hasAttribute(GATKVCFConstants.REFERENCE_BASES_KEY));
