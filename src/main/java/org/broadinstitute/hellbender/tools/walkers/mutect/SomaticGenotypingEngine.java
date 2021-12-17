@@ -56,7 +56,8 @@ public class SomaticGenotypingEngine {
         this.annotationEngine = annotationEngine;
 
         mutect3DatasetEngine = MTAC.mutect3Dataset == null ? Optional.empty() :
-                Optional.of(new Mutect3DatasetEngine(MTAC.mutect3Dataset, MTAC.maxRefCountForMutect3, MTAC.mutect3NonArtifactRatio, normalSamples));
+                Optional.of(new Mutect3DatasetEngine(MTAC.mutect3Dataset, MTAC.mutect3TrainingDataMode, MTAC.maxRefCountForMutect3,
+                        MTAC.maxAltCountForMutect3, MTAC.mutect3NonArtifactRatio, normalSamples));
         Utils.validateArg(!(MTAC.mutect3Dataset == null && MTAC.mutect3TrainingDataMode), "No dataset file specified for Mutect3 training data mode.");
     }
 

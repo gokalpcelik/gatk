@@ -73,9 +73,11 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     public static final String MUTECT3_TRAINING_MODE_LONG_NAME = "mutect3-training-mode";
     public static final String MUTECT3_TRAINING_NON_ARTIFACT_RATIO = "mutect3-non-artifact-ratio";
     public static final String MUTECT3_REF_DOWNSAMPLE_LONG_NAME = "mutect3-ref-downsample";
+    public static final String MUTECT3_REF_DOWNSAMPLE_LONG_NAME = "mutect3-alt-downsample";
     public static final String MUTECT3_DATASET_LONG_NAME = "mutect3-dataset";
 
     public static final int DEFAULT_MUTECT3_REF_DOWNSAMPLE = 10;
+    public static final int DEFAULT_MUTECT3_ALT_DOWNSAMPLE = 20;
     public static final int DEFAULT_MUTECT3_NON_ARTIFACT_RATIO = 20;
 
     @Override
@@ -177,6 +179,12 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
      */
     @Argument(fullName = MUTECT3_REF_DOWNSAMPLE_LONG_NAME, optional = true, doc="Downsample ref reads to this count in training data mode.")
     public int maxRefCountForMutect3 = DEFAULT_MUTECT3_REF_DOWNSAMPLE;
+
+    /**
+     * Downsample alt reads for Mutect3 data
+     */
+    @Argument(fullName = MUTECT3_ALT_DOWNSAMPLE_LONG_NAME, optional = true, doc="Downsample alt reads to this count in training data mode.")
+    public int maxAltCountForMutect3 = DEFAULT_MUTECT3_ALT_DOWNSAMPLE;
 
     /**
      * Number of non-artifact data per artifact datum in Mutect3 training

@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.walkers.mutect;
 
 import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.math3.util.FastMath;
@@ -9,12 +10,15 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.AssemblyComplexity;
 import org.broadinstitute.hellbender.tools.walkers.annotator.FeaturizedReadSets;
 import org.broadinstitute.hellbender.tools.walkers.annotator.ReferenceBases;
+import org.broadinstitute.hellbender.utils.IndexRange;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.genotyper.AlleleLikelihoods;
 import org.broadinstitute.hellbender.utils.haplotype.Haplotype;
 import org.broadinstitute.hellbender.utils.read.Fragment;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
+import org.broadinstitute.hellbender.utils.variant.GATKVCFConstants;
+import org.broadinstitute.hellbender.utils.variant.VariantContextGetters;
 import org.eclipse.jetty.util.ArrayQueue;
 
 import java.io.File;
@@ -47,6 +51,7 @@ public class Mutect3DatasetEngine {
     private static final double COMMON_POPAF_THRESHOLD = 1;
 
     private final int maxRefCount;
+    private final int maxAltCount;
 
     // TODO: is this necessary?
     private static final int MIN_REF = 5;
@@ -56,6 +61,9 @@ public class Mutect3DatasetEngine {
     // number of nonartifact data to keep for each artifact datum
     private final int nonArtifactPerArtifact;
 
+    // are we generating dataset for training a model or for filtering calls with a pre-trained model?
+    private final boolean trainingMode;
+
     private final Set<String> normalSamples;
 
     // simple method to balance data: for each k-alt-read artifact there are
@@ -63,7 +71,7 @@ public class Mutect3DatasetEngine {
     private final EnumMap<VariantType, ArrayQueue<Integer>> unmatchedCounts;
 
 
-    public Mutect3DatasetEngine(final File datasetFile, final int maxRefCount, final int nonArtifactPerArtifact, final Set<String> normalSamples) {
+    public Mutect3DatasetEngine(final File datasetFile, final boolean trainingMode, final int maxRefCount, final int maxAltCount, final int nonArtifactPerArtifact, final Set<String> normalSamples) {
         try {
             printWriter = new PrintWriter(new FileWriter(Utils.nonNull(datasetFile)));
         } catch (IOException ex) {
@@ -71,8 +79,10 @@ public class Mutect3DatasetEngine {
         }
 
         this.normalSamples = Utils.nonNull(normalSamples);
+        this.trainingMode = trainingMode;
         this.nonArtifactPerArtifact = nonArtifactPerArtifact;
         this.maxRefCount = maxRefCount;
+        this.maxAltCount = maxAltCount;
 
         unmatchedCounts = new EnumMap<VariantType, ArrayQueue<Integer>>(VariantType.class);
         for (final VariantType type : VariantType.values()) {
@@ -87,13 +97,26 @@ public class Mutect3DatasetEngine {
         final String refAllele = vc.getReference().getBaseString();
         final String contig = vc.getContig();
         final int position = vc.getStart();
+        final Set<String> tumorSamples = likelihoods.samples().stream().filter(sample -> !normalSamples.contains(sample)).collect(Collectors.toSet());
+
+
+        // the variant has already been annotated, so we have POPAF and AD
+        final double[] negativeLog10AlleleFrequencies = VariantContextGetters.getAttributeAsDoubleArray(vc, GATKVCFConstants.POPULATION_AF_KEY);
+        final double[] altPopulationAFs = MathUtils.applyToArray(negativeLog10AlleleFrequencies, x -> Math.pow(10, -x ));
+        final int[] tumorADs = sumADsOverSamples(vc, normalSamples);
+        final int[] normalADs = sumADsOverSamples(vc, normalSamples);
+        
+
+        if (trainingMode) {
+
+        }
 
         // haplotype equivalence counts, haplotype complexity, haplotype dominance
         final Triple<int[], int[], double[]> assemblyComplexity = AssemblyComplexity.annotate(vc, logFragmentLikelihoods);
 
-        final List<String> tumorSamples = likelihoods.samples().stream().filter(sample -> !normalSamples.contains(sample)).collect(Collectors.toList());
-        final List<List<List<Integer>>> normalReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, normalSamples, likelihoods, logFragmentLikelihoods, maxRefCount);
-        final List<List<List<Integer>>> tumorReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, tumorSamples, likelihoods, logFragmentLikelihoods, maxRefCount);
+
+        final List<List<List<Integer>>> normalReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, normalSamples, likelihoods, logFragmentLikelihoods, maxRefCount, maxAltCount);
+        final List<List<List<Integer>>> tumorReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, tumorSamples, likelihoods, logFragmentLikelihoods, maxRefCount, maxAltCount);
 
         // ref reads have already been downsampled by the read featurizer
         final List<List<Integer>> tumorRefReads = tumorReadVectorsByAllele.get(0);
@@ -193,6 +216,12 @@ public class Mutect3DatasetEngine {
         final int backwardRepeats = (front - back - 1) / k;
 
         return FastMath.max(forwardRepeats, backwardRepeats);
+    }
+
+    private int[] sumADsOverSamples(final VariantContext vc, final Set<String> samples) {
+        final int[] ADs = new int[vc.getNAlleles()];
+        vc.getGenotypes(samples).stream().map(Genotype::getAD).forEach(ad -> new IndexRange(0, vc.getNAlleles()).forEach(n -> ADs[n] += ad[n]));
+        return ADs;
     }
 
     public void shutdown() {
