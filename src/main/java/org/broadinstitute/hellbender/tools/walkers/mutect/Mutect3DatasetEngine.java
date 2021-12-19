@@ -120,7 +120,7 @@ public class Mutect3DatasetEngine {
         final boolean hasNormal = normalDepth > 0;
 
         final List<Label> labels = new ArrayList<>(numAlt);
-        final List<Integer> altCountDownsample = new ArrayList<>(numAlt);
+        final Map<Allele, Integer> altDownsampleMap= new HashMap<>();
 
         for (int n = 0; n < numAlt; n++) {
             final double tumorAF = tumorADs[n+1] / tumorDepth;
@@ -141,28 +141,22 @@ public class Mutect3DatasetEngine {
                 // low AF in tumor and normal, rare in population implies artifact
                 if  (!(likelySeqError || likelyGermline) && tumorAF < 0.2 && popafs[n] > RARE_POPAF_THRESHOLD) {
                     labels.add(Label.ARTIFACT);
-                    altCountDownsample.add(maxAltCount);
                     unmatchedQueue.addAll(Collections.nCopies(nonArtifactPerArtifact, tumorADs[n+1]));
                 } else if (definiteGermline && !unmatchedQueue.isEmpty()) {
                     // high AF in tumor and normal, common in population implies germline, which we downsample
                     labels.add(Label.VARIANT);
-                    altCountDownsample.add(unmatchedQueue.poll());
-                    // TODO downsample alt reads somehow!!!!!
+                    altDownsampleMap.put(vc.getAlternateAllele(n), unmatchedQueue.poll());
                 } else if (tumorLods[n] > 4.0 && tumorAF < 0.3) {
                     labels.add(Label.UNLABELED);
-                    altCountDownsample.add(maxAltCount);
                 } else {
                     labels.add(Label.IGNORE);
-                    altCountDownsample.add(maxAltCount);
                 }
             } else {
                 labels.add(Label.UNLABELED);
-                altCountDownsample.add(maxAltCount);
             }
         }
 
         Utils.validate(labels.size() == numAlt, "We have not labeled every alt, or have labeled too much");
-        Utils.validate(altCountDownsample.size() == numAlt, "We have not determined every alt count downsample");
         // we check this later allele by allele, but we can save a lot of compute here if we realize no alt allele yields training data
         if (trainingMode && labels.stream().allMatch(label -> label == Label.IGNORE)) {
             return;
@@ -171,10 +165,9 @@ public class Mutect3DatasetEngine {
         // haplotype equivalence counts, haplotype complexity, haplotype dominance
         final Triple<int[], int[], double[]> assemblyComplexity = AssemblyComplexity.annotate(vc, logFragmentLikelihoods);
 
-        // TODO: need to pass the per-allele alt count downsample list to the tumor reads method
         // TODO: for now we don't really need normal reads
         final List<List<List<Integer>>> normalReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, normalSamples, likelihoods, logFragmentLikelihoods, maxRefCount, maxAltCount);
-        final List<List<List<Integer>>> tumorReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, tumorSamples, likelihoods, logFragmentLikelihoods, maxRefCount, maxAltCount);
+        final List<List<List<Integer>>> tumorReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, tumorSamples, likelihoods, logFragmentLikelihoods, maxRefCount, maxAltCount, altDownsampleMap);
 
         // ref reads have already been downsampled by the read featurizer
         final List<List<Integer>> tumorRefReads = tumorReadVectorsByAllele.get(0);
@@ -190,7 +183,6 @@ public class Mutect3DatasetEngine {
             final List<List<Integer>> tumorAltReads = tumorReadVectorsByAllele.get(n+1);
             final List<List<Integer>> normalAltReads = normalReadVectorsByAllele.get(n+1);
 
-            // TODO: need pre-downsampling counts for normal artifact
             printWriter.print(labels.get(n).toString());
             printWriter.printf("%s:%d,%s->%s", contig, position, refAllele, altAllele);
             printWriter.print(refBases);
@@ -200,6 +192,7 @@ public class Mutect3DatasetEngine {
             tumorAltReads.forEach(r -> printWriter.print(numberString(r)));
             //normalRefReads.forEach(r -> printWriter.print(numberString(r)));
             //normalAltReads.forEach(r -> printWriter.print(numberString(r)));
+            printWriter.printf("%d %d %d %d", tumorDepth, tumorADs[n+1], normalDepth, normalADs[n+1]);  // pre-downsampling counts for normal artifact model
             }
     }
 

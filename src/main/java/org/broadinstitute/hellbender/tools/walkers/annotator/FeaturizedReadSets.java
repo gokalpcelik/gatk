@@ -87,13 +87,23 @@ public class FeaturizedReadSets implements JumboGenotypeAnnotation {
         gb.attribute(GATKVCFConstants.FEATURIZED_READ_SETS_COUNTS_KEY, countsInAlleleOrder);
     }
 
+    public static List<List<List<Integer>>> getReadVectors(final VariantContext vc,
+                                                           final Collection<String> samples,
+                                                           final AlleleLikelihoods<GATKRead, Allele> likelihoods,
+                                                           final AlleleLikelihoods<Fragment, Haplotype> haplotypeLikelihoods,
+                                                           final int refDownsample,
+                                                           final int altDownsample) {
+        return getReadVectors(vc, samples, likelihoods, haplotypeLikelihoods, refDownsample, altDownsample, Collections.emptyMap());
+    }
+
     // returns Lists (in allele order) of lists of read vectors supporting each allele
     public static List<List<List<Integer>>> getReadVectors(final VariantContext vc,
-                                                    final Collection<String> samples,
-                                                    final AlleleLikelihoods<GATKRead, Allele> likelihoods,
-                                                    final AlleleLikelihoods<Fragment, Haplotype> haplotypeLikelihoods,
-                                                    final int refDownsample,
-                                                    final int altDownsample) {
+                                                           final Collection<String> samples,
+                                                           final AlleleLikelihoods<GATKRead, Allele> likelihoods,
+                                                           final AlleleLikelihoods<Fragment, Haplotype> haplotypeLikelihoods,
+                                                           final int refDownsample,
+                                                           final int altDownsample,
+                                                           final Map<Allele, Integer> altDownsampleMap) {
         final Map<Allele, List<GATKRead>> readsByAllele = likelihoods.alleles().stream()
                 .collect(Collectors.toMap(a -> a, a -> new ArrayList<>()));
 
@@ -104,7 +114,7 @@ public class FeaturizedReadSets implements JumboGenotypeAnnotation {
         // downsample if necessary
         final Allele refAllele = likelihoods.alleles().stream().filter(Allele::isReference).findFirst().get();
         for (final Allele allele : likelihoods.alleles()) {
-            final int downsample = allele.isReference() ? refDownsample : altDownsample;
+            final int downsample = allele.isReference() ? refDownsample : altDownsampleMap.getOrDefault(allele, altDownsample);
             if (readsByAllele.get(allele).size() > downsample) {
                 Collections.shuffle(readsByAllele.get(allele));
                 readsByAllele.put(allele, readsByAllele.get(refAllele).subList(0, downsample));
