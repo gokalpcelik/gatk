@@ -73,7 +73,7 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     public static final String MUTECT3_TRAINING_MODE_LONG_NAME = "mutect3-training-mode";
     public static final String MUTECT3_TRAINING_NON_ARTIFACT_RATIO = "mutect3-non-artifact-ratio";
     public static final String MUTECT3_REF_DOWNSAMPLE_LONG_NAME = "mutect3-ref-downsample";
-    public static final String MUTECT3_REF_DOWNSAMPLE_LONG_NAME = "mutect3-alt-downsample";
+    public static final String MUTECT3_ALT_DOWNSAMPLE_LONG_NAME = "mutect3-alt-downsample";
     public static final String MUTECT3_DATASET_LONG_NAME = "mutect3-dataset";
 
     public static final int DEFAULT_MUTECT3_REF_DOWNSAMPLE = 10;

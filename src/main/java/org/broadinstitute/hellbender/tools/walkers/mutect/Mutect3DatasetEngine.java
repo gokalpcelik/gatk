@@ -10,6 +10,7 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.walkers.annotator.AssemblyComplexity;
 import org.broadinstitute.hellbender.tools.walkers.annotator.FeaturizedReadSets;
 import org.broadinstitute.hellbender.tools.walkers.annotator.ReferenceBases;
+import org.broadinstitute.hellbender.tools.walkers.mutect.filtering.Mutect2FilteringEngine;
 import org.broadinstitute.hellbender.utils.IndexRange;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -35,6 +36,10 @@ public class Mutect3DatasetEngine {
         SNV, INSERTION, DELETION
     }
 
+    private enum Label {
+        ARTIFACT, VARIANT, UNLABELED, IGNORE
+    }
+
     // number of features for each vectorized read
     private static final int FEATURES_PER_READ = FeaturizedReadSets.FEATURES_PER_READ;
 
@@ -49,6 +54,9 @@ public class Mutect3DatasetEngine {
     // very cautious threshold of negative log-10 population allele frequency to consider something germline for training data.
     // There are so many germline variants we can be wasteful!
     private static final double COMMON_POPAF_THRESHOLD = 1;
+
+    // below this tumor log odds we don't consider it an artifact, just a sequencing error
+    private static final double TLOD_THRESHOLD = 6.0;
 
     private final int maxRefCount;
     private final int maxAltCount;
@@ -98,23 +106,73 @@ public class Mutect3DatasetEngine {
         final String contig = vc.getContig();
         final int position = vc.getStart();
         final Set<String> tumorSamples = likelihoods.samples().stream().filter(sample -> !normalSamples.contains(sample)).collect(Collectors.toSet());
+        final int numAlt = vc.getNAlleles() - 1;
 
 
         // the variant has already been annotated, so we have POPAF and AD
-        final double[] negativeLog10AlleleFrequencies = VariantContextGetters.getAttributeAsDoubleArray(vc, GATKVCFConstants.POPULATION_AF_KEY);
-        final double[] altPopulationAFs = MathUtils.applyToArray(negativeLog10AlleleFrequencies, x -> Math.pow(10, -x ));
-        final int[] tumorADs = sumADsOverSamples(vc, normalSamples);
+        final double[] popafs = VariantContextGetters.getAttributeAsDoubleArray(vc, GATKVCFConstants.POPULATION_AF_KEY);
+        //final double[] altPopulationAFs = MathUtils.applyToArray(popafs, x -> Math.pow(10, -x ));
+        final double[] tumorLods = Mutect2FilteringEngine.getTumorLogOdds(vc);
+        final int[] tumorADs = sumADsOverSamples(vc, tumorSamples);
         final int[] normalADs = sumADsOverSamples(vc, normalSamples);
-        
+        final double tumorDepth = MathUtils.sum(tumorADs);
+        final double normalDepth = MathUtils.sum(normalADs);
+        final boolean hasNormal = normalDepth > 0;
 
-        if (trainingMode) {
+        final List<Label> labels = new ArrayList<>(numAlt);
+        final List<Integer> altCountDownsample = new ArrayList<>(numAlt);
 
+        for (int n = 0; n < numAlt; n++) {
+            final double tumorAF = tumorADs[n+1] / tumorDepth;
+            final double normalAF = hasNormal ? normalADs[n+1] / normalDepth : 0.0;
+            final String altAllele = vc.getAlternateAllele(n).getBaseString();
+            final int diff = altAllele.length() - refAllele.length();
+            final VariantType type = diff == 0 ? VariantType.SNV : ( diff > 0 ? VariantType.INSERTION : VariantType.DELETION);
+
+            if (trainingMode) {
+                final ArrayQueue<Integer> unmatchedQueue = unmatchedCounts.get(type);
+                final boolean likelySeqError = tumorLods[n] < TLOD_THRESHOLD;
+                final boolean likelyGermline = hasNormal && normalAF > 0.2;
+
+                // extremely strict criteria because there are so many germline variants we can afford to waste a lot
+                final boolean definiteGermline = !likelySeqError && popafs[n] < COMMON_POPAF_THRESHOLD &&
+                        tumorAF > 0.35 && (!hasNormal || normalAF > 0.35);
+
+                // low AF in tumor and normal, rare in population implies artifact
+                if  (!(likelySeqError || likelyGermline) && tumorAF < 0.2 && popafs[n] > RARE_POPAF_THRESHOLD) {
+                    labels.add(Label.ARTIFACT);
+                    altCountDownsample.add(maxAltCount);
+                    unmatchedQueue.addAll(Collections.nCopies(nonArtifactPerArtifact, tumorADs[n+1]));
+                } else if (definiteGermline && !unmatchedQueue.isEmpty()) {
+                    // high AF in tumor and normal, common in population implies germline, which we downsample
+                    labels.add(Label.VARIANT);
+                    altCountDownsample.add(unmatchedQueue.poll());
+                    // TODO downsample alt reads somehow!!!!!
+                } else if (tumorLods[n] > 4.0 && tumorAF < 0.3) {
+                    labels.add(Label.UNLABELED);
+                    altCountDownsample.add(maxAltCount);
+                } else {
+                    labels.add(Label.IGNORE);
+                    altCountDownsample.add(maxAltCount);
+                }
+            } else {
+                labels.add(Label.UNLABELED);
+                altCountDownsample.add(maxAltCount);
+            }
+        }
+
+        Utils.validate(labels.size() == numAlt, "We have not labeled every alt, or have labeled too much");
+        Utils.validate(altCountDownsample.size() == numAlt, "We have not determined every alt count downsample");
+        // we check this later allele by allele, but we can save a lot of compute here if we realize no alt allele yields training data
+        if (trainingMode && labels.stream().allMatch(label -> label == Label.IGNORE)) {
+            return;
         }
 
         // haplotype equivalence counts, haplotype complexity, haplotype dominance
         final Triple<int[], int[], double[]> assemblyComplexity = AssemblyComplexity.annotate(vc, logFragmentLikelihoods);
 
-
+        // TODO: need to pass the per-allele alt count downsample list to the tumor reads method
+        // TODO: for now we don't really need normal reads
         final List<List<List<Integer>>> normalReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, normalSamples, likelihoods, logFragmentLikelihoods, maxRefCount, maxAltCount);
         final List<List<List<Integer>>> tumorReadVectorsByAllele =  FeaturizedReadSets.getReadVectors(vc, tumorSamples, likelihoods, logFragmentLikelihoods, maxRefCount, maxAltCount);
 
@@ -122,35 +180,26 @@ public class Mutect3DatasetEngine {
         final List<List<Integer>> tumorRefReads = tumorReadVectorsByAllele.get(0);
         final List<List<Integer>> normalRefReads = normalReadVectorsByAllele.get(0);
 
-        for (int n = 0; n < vc.getNAlleles() - 1; n++) {
+        for (int n = 0; n < numAlt; n++) {
+            if (labels.get(n) ==  Label.IGNORE) {
+                continue;
+            }
+
             final String altAllele = vc.getAlternateAllele(n).getBaseString();
-            final int diff = altAllele.length() - refAllele.length();
-            final VariantType type = diff == 0 ? VariantType.SNV : ( diff > 0 ? VariantType.INSERTION : VariantType.DELETION);
-
-
-            // format is (all vectors are one vector per line, single-spaced)
-            // CONTIG:POSITION,REF->ALT
-            // REFERENCE CONTEXT BASES
-            // variant feature vector
-            // tumor_ref_count tumor_alt_count normal_ref_count normal_alt_count
-            // tumor ref reads, one per line
-            // tumor alt reads
-            // normal ref reads
-            // normal alt reads
-            printWriter.printf("%s:%d,%s->%s", contig, position, refAllele, altAllele);
-            printWriter.print(refBases);
-
-            // print variant feature vector with 3 decimal places, single-spaced
             final List<Double> variantFeatureVector = variantFeatures(n, assemblyComplexity, refBases);
-            printWriter.print(numberString(variantFeatureVector, "%.3f", " "));
-
             final List<List<Integer>> tumorAltReads = tumorReadVectorsByAllele.get(n+1);
             final List<List<Integer>> normalAltReads = normalReadVectorsByAllele.get(n+1);
+
+            // TODO: need pre-downsampling counts for normal artifact
+            printWriter.print(labels.get(n).toString());
+            printWriter.printf("%s:%d,%s->%s", contig, position, refAllele, altAllele);
+            printWriter.print(refBases);
+            printWriter.print(numberString(variantFeatureVector, "%.3f", " "));
             printWriter.printf("%d %d %d %d", tumorRefReads.size(), tumorAltReads.size(), normalRefReads.size(), normalAltReads.size());
             tumorRefReads.forEach(r -> printWriter.print(numberString(r)));
             tumorAltReads.forEach(r -> printWriter.print(numberString(r)));
-            normalRefReads.forEach(r -> printWriter.print(numberString(r)));
-            normalAltReads.forEach(r -> printWriter.print(numberString(r)));
+            //normalRefReads.forEach(r -> printWriter.print(numberString(r)));
+            //normalAltReads.forEach(r -> printWriter.print(numberString(r)));
             }
     }
 
