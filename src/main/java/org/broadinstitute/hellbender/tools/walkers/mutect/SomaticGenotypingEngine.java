@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class SomaticGenotypingEngine {
+public class SomaticGenotypingEngine implements AutoCloseable {
 
     private final M2ArgumentCollection MTAC;
     private final Set<String> normalSamples;
@@ -363,5 +363,14 @@ public class SomaticGenotypingEngine {
         }
 
         return Doubles.toArray(Collections.nCopies(altAlleles.size(), afOfAllelesNotInGermlineResource));
+    }
+
+    /**
+     * This method must be called when the client is done with genotyping.
+     * It closes any open resources.
+     */
+    @Override
+    public void close() {
+        mutect3DatasetEngine.ifPresent(engine -> engine.close());
     }
 }

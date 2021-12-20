@@ -59,7 +59,7 @@ import java.util.stream.IntStream;
 /**
  * Created by davidben on 9/15/16.
  */
-public final class Mutect2Engine implements AssemblyRegionEvaluator {
+public final class Mutect2Engine implements AssemblyRegionEvaluator, AutoCloseable {
 
     private static final List<String> STANDARD_MUTECT_INFO_FIELDS = Arrays.asList(GATKVCFConstants.NORMAL_LOG_10_ODDS_KEY, GATKVCFConstants.TUMOR_LOG_10_ODDS_KEY, GATKVCFConstants.NORMAL_ARTIFACT_LOG_10_ODDS_KEY,
             GATKVCFConstants.EVENT_COUNT_IN_HAPLOTYPE_KEY, GATKVCFConstants.IN_PON_KEY, GATKVCFConstants.POPULATION_AF_KEY,
@@ -351,11 +351,13 @@ public final class Mutect2Engine implements AssemblyRegionEvaluator {
         });
     }
 
-    public void shutdown() {
+    @Override
+    public void close() {
         likelihoodCalculationEngine.close();
         aligner.close();
         haplotypeBAMWriter.ifPresent(writer -> writer.close());
         referenceReader.close();
+        genotypingEngine.close();
     }
 
     @Override

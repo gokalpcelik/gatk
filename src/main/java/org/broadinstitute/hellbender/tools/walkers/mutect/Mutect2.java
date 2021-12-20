@@ -306,7 +306,7 @@ public final class Mutect2 extends AssemblyRegionWalker {
             vcfWriter.close();
         }
         if (m2Engine != null) {
-            m2Engine.shutdown();
+            m2Engine.close();
         }
     }
 }

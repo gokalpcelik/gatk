@@ -114,8 +114,6 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     @Argument(fullName = NORMAL_SAMPLE_LONG_NAME, shortName = NORMAL_SAMPLE_SHORT_NAME, doc = "BAM sample name of normal(s), if any.  May be URL-encoded as output by GetSampleName with -encode argument.", optional = true)
     protected List<String> normalSamples = new ArrayList<>();
 
-    //TODO: END OF HACK ALERT
-
     /***************************************/
     // Reference Metadata inputs
     /***************************************/
@@ -177,13 +175,13 @@ public class M2ArgumentCollection extends AssemblyBasedCallerArgumentCollection 
     /**
      * Downsample ref reads for Mutect3 data
      */
-    @Argument(fullName = MUTECT3_REF_DOWNSAMPLE_LONG_NAME, optional = true, doc="Downsample ref reads to this count in training data mode.")
+    @Argument(fullName = MUTECT3_REF_DOWNSAMPLE_LONG_NAME, optional = true, doc="Downsample ref reads to this count when generating a Mutect3 dataset.")
     public int maxRefCountForMutect3 = DEFAULT_MUTECT3_REF_DOWNSAMPLE;
 
     /**
      * Downsample alt reads for Mutect3 data
      */
-    @Argument(fullName = MUTECT3_ALT_DOWNSAMPLE_LONG_NAME, optional = true, doc="Downsample alt reads to this count in training data mode.")
+    @Argument(fullName = MUTECT3_ALT_DOWNSAMPLE_LONG_NAME, optional = true, doc="Downsample alt reads to this count for Mutect3 training datasets.")
     public int maxAltCountForMutect3 = DEFAULT_MUTECT3_ALT_DOWNSAMPLE;
 
     /**

@@ -30,7 +30,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class Mutect3DatasetEngine {
+public class Mutect3DatasetEngine implements AutoCloseable {
 
     private enum VariantType {
         SNV, INSERTION, DELETION
@@ -115,16 +115,16 @@ public class Mutect3DatasetEngine {
         final double[] tumorLods = Mutect2FilteringEngine.getTumorLogOdds(vc);
         final int[] tumorADs = sumADsOverSamples(vc, tumorSamples);
         final int[] normalADs = sumADsOverSamples(vc, normalSamples);
-        final double tumorDepth = MathUtils.sum(tumorADs);
-        final double normalDepth = MathUtils.sum(normalADs);
+        final int tumorDepth = (int) MathUtils.sum(tumorADs);
+        final int normalDepth = (int) MathUtils.sum(normalADs);
         final boolean hasNormal = normalDepth > 0;
 
         final List<Label> labels = new ArrayList<>(numAlt);
         final Map<Allele, Integer> altDownsampleMap= new HashMap<>();
 
         for (int n = 0; n < numAlt; n++) {
-            final double tumorAF = tumorADs[n+1] / tumorDepth;
-            final double normalAF = hasNormal ? normalADs[n+1] / normalDepth : 0.0;
+            final double tumorAF = tumorADs[n+1] / ((double) tumorDepth);
+            final double normalAF = hasNormal ? normalADs[n+1] / ((double) normalDepth) : 0.0;
             final String altAllele = vc.getAlternateAllele(n).getBaseString();
             final int diff = altAllele.length() - refAllele.length();
             final VariantType type = diff == 0 ? VariantType.SNV : ( diff > 0 ? VariantType.INSERTION : VariantType.DELETION);
@@ -183,16 +183,16 @@ public class Mutect3DatasetEngine {
             final List<List<Integer>> tumorAltReads = tumorReadVectorsByAllele.get(n+1);
             final List<List<Integer>> normalAltReads = normalReadVectorsByAllele.get(n+1);
 
-            printWriter.print(labels.get(n).toString());
-            printWriter.printf("%s:%d,%s->%s", contig, position, refAllele, altAllele);
-            printWriter.print(refBases);
-            printWriter.print(numberString(variantFeatureVector, "%.3f", " "));
-            printWriter.printf("%d %d %d %d", tumorRefReads.size(), tumorAltReads.size(), normalRefReads.size(), normalAltReads.size());
-            tumorRefReads.forEach(r -> printWriter.print(numberString(r)));
-            tumorAltReads.forEach(r -> printWriter.print(numberString(r)));
+            printWriter.println(labels.get(n).toString());
+            printWriter.printf("%s:%d,%s->%s%n", contig, position, refAllele, altAllele);
+            printWriter.println(refBases);
+            printWriter.println(numberString(variantFeatureVector, "%.3f", " "));
+            printWriter.printf("%d %d %d %d%n", tumorRefReads.size(), tumorAltReads.size(), normalRefReads.size(), normalAltReads.size());
+            tumorRefReads.forEach(r -> printWriter.println(numberString(r)));
+            tumorAltReads.forEach(r -> printWriter.println(numberString(r)));
             //normalRefReads.forEach(r -> printWriter.print(numberString(r)));
             //normalAltReads.forEach(r -> printWriter.print(numberString(r)));
-            printWriter.printf("%d %d %d %d", tumorDepth, tumorADs[n+1], normalDepth, normalADs[n+1]);  // pre-downsampling counts for normal artifact model
+            printWriter.printf("%d %d %d %d%n", tumorDepth, tumorADs[n+1], normalDepth, normalADs[n+1]);  // pre-downsampling counts for normal artifact model
             }
     }
 
@@ -201,7 +201,8 @@ public class Mutect3DatasetEngine {
     }
 
     private String numberString(final List<? extends Number> numbers, final String formatString, final String separator) {
-        return numbers.stream().map(x -> String.format(formatString, x)).collect(Collectors.joining(separator));
+        final boolean decimal = formatString.endsWith("f");
+        return numbers.stream().map(x -> String.format(formatString, decimal ? x.floatValue() : x)).collect(Collectors.joining(separator));
     }
 
     private List<Double> variantFeatures(final int altAlleleIndex, Triple<int[], int[], double[]> assemblyComplexity, final String refBases) {
@@ -266,7 +267,8 @@ public class Mutect3DatasetEngine {
         return ADs;
     }
 
-    public void shutdown() {
-        // close the writer
+    @Override
+    public void close() {
+        printWriter.close();
     }
 }

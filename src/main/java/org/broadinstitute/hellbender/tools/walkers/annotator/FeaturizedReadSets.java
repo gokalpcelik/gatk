@@ -117,7 +117,7 @@ public class FeaturizedReadSets implements JumboGenotypeAnnotation {
             final int downsample = allele.isReference() ? refDownsample : altDownsampleMap.getOrDefault(allele, altDownsample);
             if (readsByAllele.get(allele).size() > downsample) {
                 Collections.shuffle(readsByAllele.get(allele));
-                readsByAllele.put(allele, readsByAllele.get(refAllele).subList(0, downsample));
+                readsByAllele.put(allele, readsByAllele.get(allele).subList(0, downsample));
             }
         }
 
